@@ -1,13 +1,15 @@
 package com.kuvaszuptime.kuvasz.ui.fragments.monitor
 
+import com.kuvaszuptime.kuvasz.AppGlobals
 import com.kuvaszuptime.kuvasz.i18n.Messages
 import com.kuvaszuptime.kuvasz.models.dto.MonitorDetailsDto
-import com.kuvaszuptime.kuvasz.ui.*
+import com.kuvaszuptime.kuvasz.models.handlers.IntegrationType
+import com.kuvaszuptime.kuvasz.models.handlers.id
 import com.kuvaszuptime.kuvasz.ui.CSSClass.*
-import com.kuvaszuptime.kuvasz.ui.components.*
 import com.kuvaszuptime.kuvasz.ui.icons.*
 import com.kuvaszuptime.kuvasz.ui.serde.*
 import com.kuvaszuptime.kuvasz.ui.utils.*
+import de.comahe.i18n4k.strings.capitalize
 import kotlinx.html.*
 
 internal fun FlowContent.validatedInput(
@@ -20,9 +22,11 @@ internal fun FlowContent.validatedInput(
     disabledIf: String? = null,
     isNumber: Boolean = false,
 ) {
+    val inputName = "monitor-$propName-input"
     label {
         val labelClasses = mutableSetOf(FORM_LABEL).addIf(required, REQUIRED)
         classes(labelClasses)
+        htmlFor = inputName
         if (required) required()
         +label
         if (!description.isNullOrEmpty()) {
@@ -38,7 +42,8 @@ internal fun FlowContent.validatedInput(
     }
     input(type = InputType.text) {
         classes(FORM_CONTROL)
-        name = "monitor-$propName-input"
+        id = inputName
+        name = inputName
         placeholder?.let { this.placeholder = it }
         xBindClass("errors.$propName ? 'is-invalid' : ''")
         onInput?.let { xOnInput(it) }
@@ -58,12 +63,14 @@ internal fun FlowContent.toggleSwitch(
     propName: String,
     label: String,
     description: String? = null,
+    isDisabled: Boolean = false,
 ) {
     label {
         classes(FORM_CHECK, FORM_SWITCH)
-        input(type = InputType.checkBox) {
+        input(type = InputType.checkBox, name = propName) {
             classes(FORM_CHECK_INPUT)
             xModel(propName)
+            if (isDisabled) disabled = true
         }
         span {
             classes(FORM_CHECK_LABEL)
@@ -82,7 +89,11 @@ internal fun FlowContent.toggleSwitch(
     }
 }
 
-internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: MonitorDetailsDto?) {
+internal fun FlowContent.monitorCreateUpdateModal(
+    modalId: String,
+    monitor: MonitorDetailsDto?,
+    globals: AppGlobals,
+) {
     val serializedMonitor: String? = monitor?.let { objectMapper.writeValueAsString(it) }
     val serializedErrorMessages = objectMapper.writeValueAsString(
         mapOf(
@@ -117,6 +128,8 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                         classes(MODAL_TITLE)
                         if (monitor == null) {
                             +Messages.createNewMonitor()
+                        } else if (globals.isReadOnlyMode) {
+                            +Messages.configurationOf(monitor.name)
                         } else {
                             +Messages.updateMonitor(monitor.name)
                         }
@@ -142,6 +155,7 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                             placeholder = Messages.monitorNamePlaceholder(),
                             required = true,
                             onInput = "validateName()",
+                            disabledIf = "${globals.isReadOnlyMode}",
                         )
                     }
                     // URL
@@ -153,6 +167,7 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                             placeholder = Messages.monitorUrlPlaceholder(),
                             required = true,
                             onInput = "validateUrl()",
+                            disabledIf = "${globals.isReadOnlyMode}",
                         )
                     }
                     // Uptime Check Interval
@@ -164,6 +179,7 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                             placeholder = null,
                             required = true,
                             onInput = "validateUptimeCheckInterval()",
+                            disabledIf = "${globals.isReadOnlyMode}",
                         )
                     }
                     // HTTP Method (GET, HEAD, etc.)
@@ -180,6 +196,7 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                                     classes(FORM_SELECTGROUP_INPUT)
                                     value = "GET"
                                     xModel("requestMethod")
+                                    if (globals.isReadOnlyMode) disabled = true
                                 }
                                 span {
                                     classes(FORM_SELECTGROUP_LABEL)
@@ -192,6 +209,7 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                                     classes(FORM_SELECTGROUP_INPUT)
                                     value = "HEAD"
                                     xModel("requestMethod")
+                                    if (globals.isReadOnlyMode) disabled = true
                                 }
                                 span {
                                     classes(FORM_SELECTGROUP_LABEL)
@@ -211,7 +229,8 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                     toggleSwitch(
                         propName = "sslCheckEnabled",
                         label = Messages.enabled(),
-                        description = Messages.sslCheckSwitchDescription()
+                        description = Messages.sslCheckSwitchDescription(),
+                        isDisabled = globals.isReadOnlyMode,
                     )
                     validatedInput(
                         propName = "sslExpiryThreshold",
@@ -220,7 +239,7 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                         placeholder = null,
                         required = true,
                         onInput = "validateSslExpiryThreshold()",
-                        disabledIf = "!sslCheckEnabled",
+                        disabledIf = "${globals.isReadOnlyMode} || !sslCheckEnabled",
                     )
                 }
                 // Advanced Settings
@@ -235,7 +254,8 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                         toggleSwitch(
                             propName = "latencyHistoryEnabled",
                             label = Messages.latencyHistorySwitchLabel(),
-                            description = Messages.latencyHistorySwitchDescription()
+                            description = Messages.latencyHistorySwitchDescription(),
+                            isDisabled = globals.isReadOnlyMode,
                         )
                     }
                     div {
@@ -243,7 +263,8 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                         toggleSwitch(
                             propName = "followRedirects",
                             label = Messages.followRedirectsSwitchLabel(),
-                            description = Messages.followRedirectsSwitchDescription()
+                            description = Messages.followRedirectsSwitchDescription(),
+                            isDisabled = globals.isReadOnlyMode,
                         )
                     }
                     div {
@@ -251,7 +272,8 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                         toggleSwitch(
                             propName = "forceNoCache",
                             label = Messages.forceNoCacheSwitchLabel(),
-                            description = Messages.forceNoCacheSwitchDescription()
+                            description = Messages.forceNoCacheSwitchDescription(),
+                            isDisabled = globals.isReadOnlyMode,
                         )
                     }
                 }
@@ -262,54 +284,61 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                         classes(MB_3)
                         +Messages.integrationsLabel()
                     }
+                    val enabledIntegrationsByType = globals.configuredIntegrationsByType.toSortedMap()
                     div {
                         classes(MB_3)
-                        label {
-                            classes(FORM_LABEL)
-                            +Messages.pagerdutyIntegrationKeyLabel()
-                            span {
-                                classes(MS_2)
-                                tooltip(
-                                    title = Messages.pagerdutyIntegrationKeyDescription(),
-                                    location = TooltipLocation.RIGHT
-                                )
-                                icon(Icon.INFO_CIRCLE)
+                        if (enabledIntegrationsByType.isEmpty()) {
+                            p {
+                                classes(TEXT_MUTED)
+                                +Messages.noIntegrationsAvailable()
                             }
                         }
-                        div {
-                            classes(ROW, G_2)
+                        enabledIntegrationsByType.forEach { (type, integrations) ->
+                            // Render each integration type with its integrations
                             div {
-                                classes(CSSClass.COL)
-                                input(type = InputType.text) {
-                                    classes(FORM_CONTROL)
-                                    name = "monitor-pagerdutyIntegrationKey-input"
-                                    xBindDisabled("isPDKeyInputDisabled")
-                                    xModel("pdIntegrationKey")
+                                classes(FORM_LABEL, MT_2)
+                                icon(type.icon)
+                                span {
+                                    classes(MS_2)
+                                    +type.identifier.capitalize()
                                 }
                             }
                             div {
-                                classes(COL_AUTO)
-                                templateTag {
-                                    xIf("wasPDIntegrationKeyPresent && isPDKeyInputDisabled")
-                                    compactIconButton(Icon.EDIT) {
-                                        xOnClick("enablePDIntegrationKeyInput()")
+                                // Render each integration as a checkbox
+                                integrations.sortedBy { it.name }.forEach { integration ->
+                                    label {
+                                        classes(FORM_CHECK, FORM_CHECK_INLINE)
+                                        input(type = InputType.checkBox) {
+                                            value = integration.id.toString()
+                                            classes(FORM_CHECK_INPUT)
+                                            xModel("integrations")
+                                            if (globals.isReadOnlyMode) disabled = true
+                                        }
+                                        span {
+                                            classes(FORM_CHECK_LABEL)
+                                            if (integration.global) {
+                                                span {
+                                                    classes(ME_2, TEXT_GREEN)
+                                                    tooltip(
+                                                        title = Messages.globalIntegrationInfo(),
+                                                        location = TooltipLocation.RIGHT
+                                                    )
+                                                    icon(Icon.WORLD)
+                                                }
+                                            }
+                                            +integration.name
+                                            if (!integration.enabled) {
+                                                span {
+                                                    classes(MS_2, TEXT_YELLOW)
+                                                    tooltip(
+                                                        title = Messages.disabledIntegrationInfo(),
+                                                        location = TooltipLocation.RIGHT
+                                                    )
+                                                    icon(Icon.ALERT_TRIANGLE)
+                                                }
+                                            }
+                                        }
                                     }
-//                                    button {
-//                                        classes(BTN, BTN_ICON)
-//                                        xOnClick("enablePDIntegrationKeyInput()")
-//                                        icon(Icon.EDIT)
-//                                    }
-                                }
-                                templateTag {
-                                    xIf("wasPDIntegrationKeyPresent && isPDKeyInputDisabled && pdIntegrationKey")
-                                    compactIconButton(Icon.TRASH, classes = setOf(BTN_OUTLINE_DANGER, MS_2)) {
-                                        xOnClick("deletePDIntegrationKey()")
-                                    }
-//                                    button {
-//                                        classes(BTN, BTN_ICON, BTN_OUTLINE_DANGER, MS_2)
-//                                        xOnClick("deletePDIntegrationKey()")
-//                                        icon(Icon.TRASH)
-//                                    }
                                 }
                             }
                         }
@@ -322,14 +351,20 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
                     a(href = "#") {
                         classes(BTN, BTN_LINK, LINK_SECONDARY)
                         modalCloser()
-                        +Messages.cancel()
+                        if (globals.isReadOnlyMode) {
+                            +Messages.close()
+                        } else {
+                            +Messages.cancel()
+                        }
                     }
-                    button {
-                        classes(BTN, BTN_PRIMARY, MS_AUTO)
-                        xBindDisabled("hasNonNullValue(errors) || isRequestLoading")
-                        xOnClick("submitForm()")
-                        icon(Icon.FLOPPY)
-                        +Messages.save()
+                    if (!globals.isReadOnlyMode) {
+                        button {
+                            classes(BTN, BTN_PRIMARY, MS_AUTO)
+                            xBindDisabled("hasNonNullValue(errors) || isRequestLoading")
+                            xOnClick("submitForm()")
+                            icon(Icon.FLOPPY)
+                            +Messages.save()
+                        }
                     }
                 }
             }
@@ -348,3 +383,11 @@ internal fun FlowContent.monitorCreateUpdateModal(modalId: String, monitor: Moni
         }
     }
 }
+
+private val IntegrationType.icon: Icon
+    get() = when (this) {
+        IntegrationType.EMAIL -> Icon.ENVELOPE
+        IntegrationType.SLACK -> Icon.BRAND_SLACK
+        IntegrationType.PAGERDUTY -> Icon.BRAND_PAGERDUTY
+        IntegrationType.TELEGRAM -> Icon.BRAND_TELEGRAM
+    }

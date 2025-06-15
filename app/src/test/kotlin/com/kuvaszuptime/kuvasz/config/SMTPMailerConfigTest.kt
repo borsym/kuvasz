@@ -15,14 +15,13 @@ class SMTPMailerConfigTest : BehaviorSpec(
                 val properties = PropertySource.of(
                     "test",
                     mapOf(
-                        "handler-config.smtp-event-handler.enabled" to "true",
                         "smtp-config.host" to "localhost",
                         "smtp-config.port" to "123"
                     )
                 )
                 then("ApplicationContext should throw a BeanInstantiationException") {
                     val exception = shouldThrow<BeanInstantiationException> {
-                        ApplicationContext.run(properties)
+                        ApplicationContext.run(properties, "full-integrations-setup")
                     }
                     exceptionToMessage(exception) shouldContain "Error when trying to open connection to the server"
                 }

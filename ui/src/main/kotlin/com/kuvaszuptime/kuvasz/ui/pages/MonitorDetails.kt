@@ -15,13 +15,16 @@ fun renderMonitorDetailsPage(globals: AppGlobals, monitor: MonitorDetailsDto): S
     return withLayout(
         globals,
         title = monitor.name.abbreviate(MONITOR_NAME_MAX_LENGTH),
-        pageTitle = { monitorDetailsHeader(monitor, globals.isReadOnlyMode) }
+        pageTitle = { monitorDetailsHeader(monitor, globals) }
     ) {
         monitorDetailsContent(monitor)
     }
 }
 
-internal fun HtmlBlockTag.monitorDetailsHeader(monitor: MonitorDetailsDto, isReadOnlyMode: Boolean) {
+internal fun HtmlBlockTag.monitorDetailsHeader(
+    monitor: MonitorDetailsDto,
+    globals: AppGlobals,
+) {
     val deleteModalId = "delete-monitor-modal-${monitor.id}"
     val updateModalId = "update-monitor-modal-${monitor.id}"
 
@@ -31,11 +34,12 @@ internal fun HtmlBlockTag.monitorDetailsHeader(monitor: MonitorDetailsDto, isRea
         div {
             classes(ROW, G_3, ALIGN_ITEMS_CENTER)
             monitorDetailsHeading(monitor)
-            if (!isReadOnlyMode) {
+
+            div {
+                classes(COL_MD_AUTO, MS_AUTO, D_PRINT_NONE)
                 div {
-                    classes(COL_MD_AUTO, MS_AUTO, D_PRINT_NONE)
-                    div {
-                        classes(BTN_LIST)
+                    classes(BTN_LIST)
+                    if (!globals.isReadOnlyMode) {
                         button {
                             classes(BTN, BTN_ICON)
                             xBindDisabled("isRequestLoading")
@@ -49,6 +53,8 @@ internal fun HtmlBlockTag.monitorDetailsHeader(monitor: MonitorDetailsDto, isRea
                                 icon(Icon.PLAY)
                             }
                         }
+                    }
+                    if (!globals.isReadOnlyMode) {
                         buttonWithIcon(Icon.SETTINGS, Messages.configure()) {
                             modalOpener(updateModalId)
                         }
@@ -57,8 +63,12 @@ internal fun HtmlBlockTag.monitorDetailsHeader(monitor: MonitorDetailsDto, isRea
                             modalOpener(deleteModalId)
                         }
                         deleteMonitorModal(deleteModalId, monitor.name)
-                        monitorCreateUpdateModal(updateModalId, monitor)
+                    } else {
+                        buttonWithIcon(Icon.EYE, Messages.configuration()) {
+                            modalOpener(updateModalId)
+                        }
                     }
+                    monitorCreateUpdateModal(updateModalId, monitor, globals)
                 }
             }
         }

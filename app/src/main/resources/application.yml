@@ -75,9 +75,6 @@ endpoints:
   health:
     enabled: true
     sensitive: false
-  info:
-    enabled: true
-    sensitive: false
 ---
 datasources:
   default:
@@ -112,33 +109,12 @@ app-config:
 handler-config:
   log-event-handler:
     enabled: ${ENABLE_LOG_EVENT_HANDLER:`true`}
-  smtp-event-handler:
-    enabled: ${ENABLE_SMTP_EVENT_HANDLER:`false`}
-    from: ${SMTP_FROM_ADDRESS}
-    to: ${SMTP_TO_ADDRESS}
-  slack-event-handler:
-    enabled: ${ENABLE_SLACK_EVENT_HANDLER:`false`}
-    webhook-url: ${SLACK_WEBHOOK_URL}
-  telegram-event-handler:
-    enabled: ${ENABLE_TELEGRAM_EVENT_HANDLER:`false`}
-    token: ${TELEGRAM_API_TOKEN}
-    chat-id: ${TELEGRAM_CHAT_ID}
-  pagerduty-event-handler:
-    enabled: ${ENABLE_PAGERDUTY_EVENT_HANDLER:`false`}
 ---
 admin-auth:
   username: ${ADMIN_USER}
   password: ${ADMIN_PASSWORD}
   api-key: ${ADMIN_API_KEY}
 ---
-smtp-config:
-  host: ${SMTP_HOST}
-  port: ${SMTP_PORT}
-  username: ${SMTP_USERNAME:``}
-  password: ${SMTP_PASSWORD:``}
-  transport-strategy: ${SMTP_TRANSPORT_STRATEGY:`SMTP_TLS`}
----
 logger:
   levels:
-    org.jooq: ERROR
     io.netty.channel: ERROR
