@@ -5,15 +5,19 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.kuvaszuptime.kuvasz.config.MonitorConfig
+import com.kuvaszuptime.kuvasz.jooq.enums.SslStatus
+import com.kuvaszuptime.kuvasz.jooq.enums.UptimeStatus
 import com.kuvaszuptime.kuvasz.models.ServiceError
 import com.kuvaszuptime.kuvasz.models.dto.MonitorCreateDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorDetailsDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorExportDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorStatsDto
+import com.kuvaszuptime.kuvasz.models.dto.MonitoringStatsDto
 import com.kuvaszuptime.kuvasz.models.dto.SSLEventDto
 import com.kuvaszuptime.kuvasz.models.dto.UptimeEventDto
 import com.kuvaszuptime.kuvasz.services.MonitorCrudService
+import com.kuvaszuptime.kuvasz.services.StatCalculator
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.MediaType
 import io.micronaut.http.annotation.Controller
@@ -44,6 +48,7 @@ const val API_V1_PREFIX = "/api/v1"
 @SecurityRequirement(name = "apiKey")
 class MonitorController(
     private val monitorCrudService: MonitorCrudService,
+    private val statCalculator: StatCalculator,
 ) : MonitorOperations {
 
     private val yamlMapper = YAMLMapper()
@@ -58,8 +63,16 @@ class MonitorController(
         )
     )
     @ExecuteOn(TaskExecutors.IO)
-    override fun getMonitorsWithDetails(@QueryValue enabledOnly: Boolean?): List<MonitorDetailsDto> =
-        monitorCrudService.getMonitorsWithDetails(enabledOnly ?: false)
+    override fun getMonitorsWithDetails(
+        @QueryValue enabled: Boolean?,
+        @QueryValue uptimeStatus: List<UptimeStatus>?,
+        @QueryValue sslStatus: List<SslStatus>?,
+    ): List<MonitorDetailsDto> =
+        monitorCrudService.getMonitorsWithDetails(
+            enabled = enabled,
+            uptimeStatus = uptimeStatus.orEmpty(),
+            sslStatus = sslStatus.orEmpty(),
+        )
 
     @ApiResponses(
         ApiResponse(
@@ -191,7 +204,7 @@ class MonitorController(
         monitorId: Long,
         @QueryValue period: Duration?,
     ): MonitorStatsDto {
-        val effectivePeriod = period ?: Duration.ofDays(STATS_PERIOD_DEFAULT_DAYS)
+        val effectivePeriod = period ?: Duration.ofDays(MONITOR_STATS_PERIOD_DEFAULT_DAYS)
         return monitorCrudService.getMonitorStats(
             monitorId = monitorId,
             period = effectivePeriod,
@@ -206,6 +219,7 @@ class MonitorController(
         )
     )
     @Produces(MediaType.APPLICATION_YAML)
+    @ExecuteOn(TaskExecutors.IO)
     override fun getYamlMonitorsExport(): SystemFile {
         val file = File.createTempFile("temp", EXPORT_FILE_NAME_PREFIX)
         val export = mapOf(
@@ -218,8 +232,21 @@ class MonitorController(
         return SystemFile(file, MediaType.APPLICATION_YAML_TYPE).attach(finalFileName)
     }
 
+    @ApiResponses(
+        ApiResponse(
+            responseCode = "200",
+            description = "Successful query",
+            content = [Content(schema = Schema(implementation = MonitoringStatsDto::class))]
+        )
+    )
+    @ExecuteOn(TaskExecutors.IO)
+    override fun getMonitoringStats(period: Duration?): MonitoringStatsDto {
+        return statCalculator.calculateOverallStats(period ?: Duration.ofDays(MONITORING_STATS_PERIOD_DEFAULT_DAYS))
+    }
+
     companion object {
-        private const val STATS_PERIOD_DEFAULT_DAYS = 1L
+        private const val MONITOR_STATS_PERIOD_DEFAULT_DAYS = 1L
+        private const val MONITORING_STATS_PERIOD_DEFAULT_DAYS = 7L
         private const val EXPORT_FILE_NAME_PREFIX = "kuvasz-monitors-export-"
         private const val EXPORT_FILE_EXTENSION = ".yml"
     }

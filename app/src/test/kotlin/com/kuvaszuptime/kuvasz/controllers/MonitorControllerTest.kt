@@ -19,11 +19,13 @@ import com.kuvaszuptime.kuvasz.models.dto.IntegrationDetailsDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorCreateDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorExportDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorUpdateDto
+import com.kuvaszuptime.kuvasz.models.dto.MonitoringStatsDto
 import com.kuvaszuptime.kuvasz.models.handlers.IntegrationID
 import com.kuvaszuptime.kuvasz.models.handlers.IntegrationType
 import com.kuvaszuptime.kuvasz.repositories.LatencyLogRepository
 import com.kuvaszuptime.kuvasz.repositories.MonitorRepository
 import com.kuvaszuptime.kuvasz.services.CheckScheduler
+import com.kuvaszuptime.kuvasz.services.StatCalculator
 import com.kuvaszuptime.kuvasz.testutils.shouldBe
 import com.kuvaszuptime.kuvasz.util.getBodyAs
 import com.kuvaszuptime.kuvasz.util.getCurrentTimestamp
@@ -50,7 +52,12 @@ import io.micronaut.http.MediaType
 import io.micronaut.http.client.HttpClient
 import io.micronaut.http.client.annotation.Client
 import io.micronaut.http.client.exceptions.HttpClientResponseException
+import io.micronaut.test.annotation.MockBean
+import io.micronaut.test.extensions.kotest5.MicronautKotest5Extension.getMock
 import io.micronaut.test.extensions.kotest5.annotation.MicronautTest
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.reactive.awaitFirst
 import java.time.Duration
 
@@ -61,6 +68,7 @@ class MonitorControllerTest(
     private val monitorRepository: MonitorRepository,
     private val latencyLogRepository: LatencyLogRepository,
     private val checkScheduler: CheckScheduler,
+    private val statCalculator: StatCalculator,
 ) : DatabaseBehaviorSpec() {
 
     private val mapper = jacksonObjectMapper()
@@ -93,7 +101,11 @@ class MonitorControllerTest(
                     endedAt = null
                 )
 
-                val response = monitorClient.getMonitorsWithDetails(enabledOnly = null)
+                val response = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = null,
+                    sslStatus = null,
+                )
                 then("it should return them") {
                     response shouldHaveSize 1
                     val responseItem = response.first()
@@ -175,10 +187,14 @@ class MonitorControllerTest(
                 }
             }
 
-            `when`("enabledOnly parameter is set to true") {
+            `when`("enabled parameter is set to true") {
                 createMonitor(monitorRepository, enabled = false, monitorName = "name1")
                 val enabledMonitor = createMonitor(monitorRepository, monitorName = "name2")
-                val response = monitorClient.getMonitorsWithDetails(enabledOnly = true)
+                val response = monitorClient.getMonitorsWithDetails(
+                    enabled = true,
+                    uptimeStatus = null,
+                    sslStatus = null,
+                )
 
                 then("it should not return disabled monitor") {
                     response shouldHaveSize 1
@@ -200,8 +216,194 @@ class MonitorControllerTest(
                 }
             }
 
+            `when`("enabled parameter is set to false") {
+                val disabledMonitor = createMonitor(monitorRepository, enabled = false, monitorName = "name1")
+                createMonitor(monitorRepository, monitorName = "name2")
+
+                val response = monitorClient.getMonitorsWithDetails(
+                    enabled = false,
+                    uptimeStatus = null,
+                    sslStatus = null,
+                )
+
+                then("it should return only the disabled monitors") {
+                    response shouldHaveSize 1
+                    val responseItem = response.first()
+                    responseItem.id shouldBe disabledMonitor.id
+                    responseItem.name shouldBe disabledMonitor.name
+                    responseItem.url.toString() shouldBe disabledMonitor.url
+                    responseItem.enabled shouldBe disabledMonitor.enabled
+                    responseItem.sslCheckEnabled shouldBe disabledMonitor.sslCheckEnabled
+                    responseItem.uptimeStatus shouldBe null
+                    responseItem.sslStatus shouldBe null
+                    responseItem.createdAt shouldBe disabledMonitor.createdAt
+                    responseItem.requestMethod shouldBe HttpMethod.GET
+                    responseItem.latencyHistoryEnabled shouldBe true
+                    responseItem.forceNoCache shouldBe true
+                    responseItem.followRedirects shouldBe true
+                    responseItem.sslExpiryThreshold shouldBe disabledMonitor.sslExpiryThreshold
+                    responseItem.sslValidUntil shouldBe null
+                }
+            }
+
+            `when`("result is filtered by the uptime status") {
+                val upMonitor = createMonitor(monitorRepository, monitorName = "up_monitor")
+                createUptimeEventRecord(
+                    dslContext,
+                    monitorId = upMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = UptimeStatus.UP,
+                    endedAt = null
+                )
+                val downMonitor = createMonitor(monitorRepository, monitorName = "down_monitor")
+                createUptimeEventRecord(
+                    dslContext,
+                    monitorId = downMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = UptimeStatus.DOWN,
+                    endedAt = null
+                )
+
+                val upResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = listOf(UptimeStatus.UP),
+                    sslStatus = null,
+                )
+                val downResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = listOf(UptimeStatus.DOWN),
+                    sslStatus = null,
+                )
+
+                then("it should return only the monitors with the specified uptime status") {
+                    upResponse.single().id shouldBe upMonitor.id
+                    downResponse.single().id shouldBe downMonitor.id
+                }
+            }
+
+            `when`("the filtering options are combined") {
+                val upMonitor = createMonitor(monitorRepository, monitorName = "up_ssl_monitor", sslCheckEnabled = true)
+                createUptimeEventRecord(
+                    dslContext,
+                    monitorId = upMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = UptimeStatus.UP,
+                    endedAt = null
+                )
+                createSSLEventRecord(
+                    dslContext,
+                    monitorId = upMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = SslStatus.VALID,
+                    endedAt = null
+                )
+                val downMonitor =
+                    createMonitor(monitorRepository, monitorName = "down_ssl_monitor", sslCheckEnabled = true)
+                createUptimeEventRecord(
+                    dslContext,
+                    monitorId = downMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = UptimeStatus.DOWN,
+                    endedAt = null
+                )
+                createSSLEventRecord(
+                    dslContext,
+                    monitorId = downMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = SslStatus.INVALID,
+                    endedAt = null
+                )
+
+                val upValidResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = listOf(UptimeStatus.UP),
+                    sslStatus = listOf(SslStatus.VALID),
+                )
+                val downInvalidResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = listOf(UptimeStatus.DOWN),
+                    sslStatus = listOf(SslStatus.INVALID),
+                )
+                val upInvalidResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = listOf(UptimeStatus.UP),
+                    sslStatus = listOf(SslStatus.INVALID),
+                )
+                val downValidResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = listOf(UptimeStatus.DOWN),
+                    sslStatus = listOf(SslStatus.VALID),
+                )
+
+                then("it should return only the monitors with the specified uptime and SSL status") {
+                    upValidResponse.single().id shouldBe upMonitor.id
+                    downInvalidResponse.single().id shouldBe downMonitor.id
+                    upInvalidResponse.shouldBeEmpty()
+                    downValidResponse.shouldBeEmpty()
+                }
+            }
+
+            `when`("the result is filtered by the SSL status") {
+                val validMonitor =
+                    createMonitor(monitorRepository, monitorName = "valid_ssl_monitor", sslCheckEnabled = true)
+                createSSLEventRecord(
+                    dslContext,
+                    monitorId = validMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = SslStatus.VALID,
+                    endedAt = null,
+                    sslExpiryDate = getCurrentTimestamp().plusDays(60)
+                )
+                val expiredMonitor =
+                    createMonitor(monitorRepository, monitorName = "expired_ssl_monitor", sslCheckEnabled = true)
+                createSSLEventRecord(
+                    dslContext,
+                    monitorId = expiredMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = SslStatus.INVALID,
+                    endedAt = null,
+                    sslExpiryDate = getCurrentTimestamp().minusDays(10)
+                )
+                val willExpireMonitor =
+                    createMonitor(monitorRepository, monitorName = "will_expire_ssl_monitor", sslCheckEnabled = true)
+                createSSLEventRecord(
+                    dslContext,
+                    monitorId = willExpireMonitor.id,
+                    startedAt = getCurrentTimestamp(),
+                    status = SslStatus.WILL_EXPIRE,
+                    endedAt = null,
+                    sslExpiryDate = getCurrentTimestamp().plusDays(10)
+                )
+
+                val validResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = null,
+                    sslStatus = listOf(SslStatus.VALID),
+                )
+                val expiredResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = null,
+                    sslStatus = listOf(SslStatus.INVALID),
+                )
+                val willExpireResponse = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = null,
+                    sslStatus = listOf(SslStatus.WILL_EXPIRE),
+                )
+
+                then("it should return only the monitors with the specified SSL status") {
+                    validResponse.single().id shouldBe validMonitor.id
+                    expiredResponse.single().id shouldBe expiredMonitor.id
+                    willExpireResponse.single().id shouldBe willExpireMonitor.id
+                }
+            }
+
             `when`("there isn't any monitor in the database") {
-                val response = monitorClient.getMonitorsWithDetails(enabledOnly = false)
+                val response = monitorClient.getMonitorsWithDetails(
+                    enabled = null,
+                    uptimeStatus = null,
+                    sslStatus = null,
+                )
                 then("it should return an empty list") {
                     response shouldHaveSize 0
                 }
@@ -1306,10 +1508,71 @@ class MonitorControllerTest(
                 }
             }
         }
+
+        given("the getMonitoringStats() endpoint") {
+
+            val monitoringStatsDtoStub = MonitoringStatsDto(
+                actual = MonitoringStatsDto.ActualMonitoringStats(
+                    uptimeStats = MonitoringStatsDto.ActualMonitoringStats.ActualUptimeStats(
+                        total = 10000,
+                        down = 8185,
+                        up = 3535,
+                        paused = 7157,
+                        inProgress = 6139,
+                        lastIncident = getCurrentTimestamp()
+                    ),
+                    sslStats = MonitoringStatsDto.ActualMonitoringStats.SslStats(
+                        invalid = 6381,
+                        valid = 8827,
+                        willExpire = 4208,
+                        inProgress = 4622
+                    )
+                ),
+                history = MonitoringStatsDto.HistoricalMonitoringStats(
+                    uptimeStats = MonitoringStatsDto.HistoricalMonitoringStats.HistoricalUptimeStats(
+                        incidents = 7630,
+                        affectedMonitors = 8313,
+                        uptimeRatio = 0.12343784
+                    )
+                )
+
+            )
+
+            `when`("it's called without an explicit period") {
+
+                val statCalculatorMock = getMock(statCalculator)
+                every { statCalculatorMock.calculateOverallStats(any()) } returns monitoringStatsDtoStub
+
+                val response = monitorClient.getMonitoringStats(period = null)
+
+                then("it should delegate to the StatCalculator with the default period and return the stats") {
+                    response.shouldNotBeNull()
+
+                    verify(exactly = 1) { statCalculatorMock.calculateOverallStats(Duration.ofHours(168)) }
+                }
+            }
+
+            `when`("it's called with an explicit period") {
+
+                val statCalculatorMock = getMock(statCalculator)
+                every { statCalculatorMock.calculateOverallStats(any()) } returns monitoringStatsDtoStub
+
+                val response = monitorClient.getMonitoringStats(period = Duration.ofDays(1))
+
+                then("it should delegate to the StatCalculator with the default period and return the stats") {
+                    response.shouldNotBeNull()
+
+                    verify(exactly = 1) { statCalculatorMock.calculateOverallStats(Duration.ofDays(1)) }
+                }
+            }
+        }
     }
 
     override suspend fun afterTest(testCase: TestCase, result: TestResult) {
         checkScheduler.removeAllChecks()
         super.afterTest(testCase, result)
     }
+
+    @MockBean(StatCalculator::class)
+    fun mockStatCalculator() = mockk<StatCalculator>()
 }
