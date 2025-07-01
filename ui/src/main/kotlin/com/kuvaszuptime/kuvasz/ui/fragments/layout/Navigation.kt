@@ -45,7 +45,7 @@ internal fun FlowContent.navigation(isAuthEnabled: Boolean, navbarMenuId: String
                                 navItem(
                                     label = Messages.docs(),
                                     icon = Icon.BOOK,
-                                    link = "https://github.com/kuvasz-uptime/kuvasz/wiki",
+                                    link = "https://kuvasz-uptime.dev",
                                     externalLink = true
                                 )
                             }
@@ -56,6 +56,12 @@ internal fun FlowContent.navigation(isAuthEnabled: Boolean, navbarMenuId: String
                                 classes(CSSClass.COL, COL_MD_AUTO)
                                 ul {
                                     classes(NAVBAR_NAV)
+                                    navItem(
+                                        label = Messages.sponsor(),
+                                        icon = Icon.HEART,
+                                        link = "https://ko-fi.com/L4L31DH59D",
+                                        externalLink = true,
+                                    )
                                     navItem(
                                         label = Messages.signOut(),
                                         icon = Icon.LOGOUT_OUTLINE,
