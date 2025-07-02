@@ -4,14 +4,6 @@
   ![Kuvasz banner](images/kuvasz-banner-light.webp#only-light){ width="350" .skip-lb }
   ![Kuvasz banner](images/kuvasz-banner-dark.webp#only-dark){ width="350" .skip-lb }
   <figcaption>Welcome to <strong>Kuvasz</strong> [ˈkuvɒs], an open-source, self-hosted uptime & SSL monitoring service</figcaption>
-<span>
-<a style="display: inline-flex;" href="https://codecov.io/gh/kuvasz-uptime/kuvasz" target="_blank">
-  <img src="https://codecov.io/gh/kuvasz-uptime/kuvasz/branch/main/graph/badge.svg?token=67X0CD3CGY" alt="codecov" />
-</a>
-<img style="display: inline-flex;" src="https://badgen.net/github/release/kuvasz-uptime/kuvasz" alt="Latest release"/></span>
-    <a style="display: inline-flex;" href="https://hub.docker.com/r/kuvaszmonitoring/kuvasz" target="_blank">
-        <img src="https://badgen.net/badge/docker/hub/blue?icon=docker" alt="DockerHub" />
-    </a>
 </figure>
 
 !!! tip "TL;DR"
