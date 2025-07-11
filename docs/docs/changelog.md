@@ -2,7 +2,7 @@
 
     Prior to version 2.0.0, the changelogs were maintained **only in the** [**GitHub repository**](https://github.com/kuvasz-uptime/kuvasz/releases){ target="_blank" }.
 
-## 2.1.0 <small>TBD</small> { id="2.1.0" data-toc-label="2.1.0" }
+## 2.1.0 <small>2025-07-11</small> { id="2.1.0" data-toc-label="2.1.0" }
 
 ### Features
 

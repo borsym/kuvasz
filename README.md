@@ -26,6 +26,7 @@ Kuvasz (pronounce as [ˈkuvɒs]) is an ancient hungarian breed of livestock & gu
 - **Notifications on a per-monitor basis**: Configure different notification channels for each monitor, allowing you to tailor alerts to your specific needs.
 - **Sleek UI**: Kuvasz has a modern, responsive, and user-friendly interface that makes it easy to manage your monitors.
 - **Full-fledged REST API**: Manage your monitors, check their status, and more through a powerful API.
+- **Metrics exporters**: Export your metrics to _OpenTelemetry_ and _Prometheus_ for better observability and integration with your existing monitoring stack.
 - More to come: _Kuvasz_ is under active development, and more features are planned for the future, such as **response keyword matching**, **POST requests with arbitrary payload**, and more.
 
 ## ⚡️  Quick start guide
