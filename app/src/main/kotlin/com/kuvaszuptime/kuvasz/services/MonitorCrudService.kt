@@ -19,6 +19,8 @@ import com.kuvaszuptime.kuvasz.models.dto.MonitorStatsDto
 import com.kuvaszuptime.kuvasz.models.dto.MonitorUpdateDto
 import com.kuvaszuptime.kuvasz.models.dto.SSLEventDto
 import com.kuvaszuptime.kuvasz.models.dto.UptimeEventDto
+import com.kuvaszuptime.kuvasz.models.events.MonitorDeleteEvent
+import com.kuvaszuptime.kuvasz.models.events.MonitorUpdateEvent
 import com.kuvaszuptime.kuvasz.models.toMonitorRecord
 import com.kuvaszuptime.kuvasz.repositories.LatencyLogRepository
 import com.kuvaszuptime.kuvasz.repositories.MonitorRepository
@@ -44,6 +46,7 @@ class MonitorCrudService(
     private val validator: Validator,
     private val integrationIdValidator: IntegrationIdValidator,
     private val integrationRepository: IntegrationRepository,
+    private val eventDispatcher: EventDispatcher,
 ) {
 
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
@@ -103,10 +106,11 @@ class MonitorCrudService(
             .let { monitor ->
                 monitorRepository.deleteById(monitor.id)
                 checkScheduler.removeChecksOfMonitor(monitor)
+                eventDispatcher.dispatch(MonitorDeleteEvent(monitor.id))
             }
 
-    fun updateMonitor(monitorId: Long, updates: ObjectNode): MonitorRecord =
-        try {
+    fun updateMonitor(monitorId: Long, updates: ObjectNode): MonitorRecord {
+        val result = try {
             dslContext.transactionResult { config ->
                 monitorRepository.findById(monitorId, config.dsl())?.let { existingMonitor ->
                     val toUpdate = existingMonitor.into(Monitor::class.java)
@@ -136,6 +140,9 @@ class MonitorCrudService(
             // because we're interested in the DuplicationErrors on the call site
             throw ex.cause ?: ex
         }
+
+        return result.also { eventDispatcher.dispatch(MonitorUpdateEvent(it.id)) }
+    }
 
     private fun MonitorRecord.saveAndReschedule(
         existingMonitor: MonitorRecord,

@@ -2,6 +2,17 @@
 
     Prior to version 2.0.0, the changelogs were maintained **only in the** [**GitHub repository**](https://github.com/kuvasz-uptime/kuvasz/releases){ target="_blank" }.
 
+## 2.1.0 <small>TBD</small> { id="2.1.0" data-toc-label="2.1.0" }
+
+### Features
+
+- **Metrics exporters**: Added support for exporting metrics to _OpenTelemetry_ and _Prometheus_. See the [**Metrics exporters**](setup/metrics-exporters.md) section for more details. With this feature, you easily integrate _Kuvasz_ with your existing observability stack. Currently exposed metrics are:
+    - Uptime status
+    - Latest latency
+    - SSL status
+    - SSL expiry date
+- **Bearer token authentication**: Added support for [**Bearer token authentication on the API**](features/api.md#authentication), along with the existing API key authentication. This allows you to use the same authentication mechanism as other modern APIs, making it easier to integrate with your existing systems.
+
 ## 2.0.0 <small>2025-07-02</small> { id="2.0.0" data-toc-label="2.0.0" }
 
 ### Breaking changes
