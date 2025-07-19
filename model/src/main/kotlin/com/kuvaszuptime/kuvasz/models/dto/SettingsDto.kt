@@ -1,5 +1,6 @@
 package com.kuvaszuptime.kuvasz.models.dto
 
+import com.kuvaszuptime.kuvasz.models.handlers.DiscordNotificationConfig
 import com.kuvaszuptime.kuvasz.models.handlers.EmailNotificationConfig
 import com.kuvaszuptime.kuvasz.models.handlers.IntegrationID
 import com.kuvaszuptime.kuvasz.models.handlers.IntegrationType
@@ -53,6 +54,8 @@ data class SettingsDto(
         val smtp: SmtpConfigDto?,
         @Schema(description = "List of Slack notification configurations", required = true)
         val slack: List<SlackNotificationConfigDto>,
+        @Schema(description = "List of Discord notification configurations", required = true)
+        val discord: List<DiscordNotificationConfigDto>,
         @Schema(description = "List of PagerDuty configurations", required = true)
         val pagerduty: List<PagerdutyConfigDto>,
         @Schema(description = "List of email notification configurations", required = true)
@@ -97,6 +100,27 @@ data class SettingsDto(
             name = config.name,
             enabled = config.enabled,
             global = config.global,
+        )
+    }
+
+    @Introspected
+    data class DiscordNotificationConfigDto(
+        override val id: IntegrationID,
+        @Schema(description = IntegrationDocs.TYPE, required = true)
+        override val type: IntegrationType,
+        @Schema(description = IntegrationDocs.NAME, required = true)
+        override val name: String,
+        @Schema(description = IntegrationDocs.ENABLED, required = true)
+        override val enabled: Boolean,
+        @Schema(description = IntegrationDocs.GLOBAL, required = true)
+        override val global: Boolean
+    ) : IntegrationConfigDto {
+        constructor(integrationID: IntegrationID, config: DiscordNotificationConfig) : this(
+            id = integrationID,
+            type = integrationID.type,
+            name = config.name,
+            enabled = config.enabled,
+            global = config.global
         )
     }
 
