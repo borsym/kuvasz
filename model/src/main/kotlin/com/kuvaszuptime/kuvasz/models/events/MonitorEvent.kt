@@ -83,7 +83,13 @@ data class MonitorDownEvent(
     override fun toStructuredMessage(): StructuredMonitorDownMessage {
         val sanitizedError = error.message?.sanitizeMessage()
         val structuredError = if (status != null) {
-            "${status.code} ${status.reason}"
+            "${status.code} ${status.reason}".let { statusFragment ->
+                if (sanitizedError != null) {
+                    "$statusFragment: $sanitizedError"
+                } else {
+                    statusFragment
+                }
+            }
         } else {
             sanitizedError
         }
@@ -194,7 +200,7 @@ data class SSLWillExpireEvent(
 private fun String.sanitizeMessage(): String {
     val sanitized = removeControlChars()
     return if (sanitized.length > ERROR_MAX_LENGTH) {
-        "${sanitized.take(ERROR_MAX_LENGTH)} ... [REDACTED]"
+        Messages.redacted(sanitized.take(ERROR_MAX_LENGTH))
     } else {
         sanitized
     }
