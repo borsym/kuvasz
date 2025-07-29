@@ -70,7 +70,7 @@ There are three ways to manage your monitors in _Kuvasz_: through the **Web UI**
 
 === "API (expert)"
 
-    This section won't go into details about the API or about exact API calls, since it's **well documented and must be self-explanatory**. You can find more information about the available endpoints and their usage in the [**API documentation**](../api-doc.md).
+    This section won't go into details about the API or about exact API calls, since it's **well documented and must be self-explanatory**. You can find more information about the available endpoints and their usage in the [**API documentation**](../api-docs.md).
 
     However, here are **few of the most important** endpoints:
 

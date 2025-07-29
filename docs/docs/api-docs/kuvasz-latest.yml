@@ -425,6 +425,7 @@ components:
       - PAGERDUTY
       - SLACK
       - TELEGRAM
+      - DISCORD
     LatencyLogDto:
       required:
       - createdAt
@@ -1078,6 +1079,33 @@ components:
           type: integer
           description: The maximum age of the access token in seconds
           format: int64
+    SettingsDto.DiscordNotificationConfigDto:
+      required:
+      - enabled
+      - global
+      - id
+      - name
+      - type
+      type: object
+      properties:
+        id:
+          type: string
+          description: "A unique identifier for an integration, formatted as 'type:name'."
+          example: email:my-email-integration
+        type:
+          description: Type of the integration
+          allOf:
+          - $ref: "#/components/schemas/IntegrationType"
+        name:
+          type: string
+          description: Name of the integration. Must be unique in the context of type.
+        enabled:
+          type: boolean
+          description: Whether the integration is enabled
+        global:
+          type: boolean
+          description: Whether the integration is global (applies to all monitors
+            by default)
     SettingsDto.EmailNotificationConfigDto:
       required:
       - enabled
@@ -1115,6 +1143,7 @@ components:
           description: The email address to which notifications are sent
     SettingsDto.IntegrationSettingsDto:
       required:
+      - discord
       - email
       - pagerduty
       - slack
@@ -1132,6 +1161,11 @@ components:
           description: List of Slack notification configurations
           items:
             $ref: "#/components/schemas/SettingsDto.SlackNotificationConfigDto"
+        discord:
+          type: array
+          description: List of Discord notification configurations
+          items:
+            $ref: "#/components/schemas/SettingsDto.DiscordNotificationConfigDto"
         pagerduty:
           type: array
           description: List of PagerDuty configurations

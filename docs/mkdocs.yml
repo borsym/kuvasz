@@ -93,8 +93,7 @@ nav:
       - Flexibility: features/flexibility.md
       - Performance: features/performance.md
       - API: features/api.md
-  - Localization: localization.md
-  - API docs: api-doc.md
+  - API docs: api-docs.md
   - Changelog: changelog.md
   - Conventions: conventions.md
   - License: https://github.com/kuvasz-uptime/kuvasz/blob/main/LICENSE

@@ -12,7 +12,7 @@ Unless you [completely disabled authentication](../setup/configuration.md#authen
 
 ## API documentation
 
-There is an OpenAPI-compliant [**API documentation**](../api-doc.md) which you can use to explore the available endpoints, their parameters, and responses.
+There is an OpenAPI-compliant [**API documentation**](../api-docs.md) which you can use to explore the available endpoints, their parameters, and responses.
 
 ## Example request
 
